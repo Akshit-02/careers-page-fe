@@ -19,10 +19,10 @@ import {
   workPolicyOptions,
 } from "../../../utils/common";
 import Switch from "../../../components/common/Switch";
+import { useSelector } from "react-redux";
 
 const JobsPage = () => {
-  const params = useParams();
-  const companyId = params?.slug;
+  const { company } = useSelector((state) => state.company);
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showJobForm, setShowJobForm] = useState(false);
@@ -35,7 +35,7 @@ const JobsPage = () => {
   const fetchJobs = async () => {
     setLoading(true);
     try {
-      const jobsData = await getJobsByCompanyIdAPI(companyId);
+      const jobsData = await getJobsByCompanyIdAPI(company?.id);
       setJobs(jobsData || []);
     } catch (error) {
       console.error("Error fetching jobs:", error);
@@ -48,7 +48,7 @@ const JobsPage = () => {
     try {
       await createJobAPI({
         ...jobData,
-        companyId,
+        companyId: company?.id,
         isActive: true,
       });
       setShowJobForm(false);

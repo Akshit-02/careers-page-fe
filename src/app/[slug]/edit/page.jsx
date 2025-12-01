@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useSelector } from "react-redux";
 import Button from "../../../components/common/Button";
@@ -8,9 +8,7 @@ import {
   // deleteCareerPageSectionAPI,
   createCareerPageSectionAPI,
   createCareerPageSectionContentAPI,
-  getCareerPageSectionByCompanyIdAPI,
-  getCareerPageSectionContentBySectionIdAPI,
-  getThemeSettingByCompanyIdAPI,
+  getCareerPageBySlugAPI,
   updateCareerPageSectionAPI,
   updateCareerPageSectionContentAPI,
   updateThemeSettingAPI,
@@ -24,9 +22,19 @@ import {
   SettingsIcon,
   Trash2Icon,
 } from "../../../utils/icons";
+import {
+  departmentOptions,
+  employmentTypeOptions,
+  experienceLevelOptions,
+  workPolicyOptions,
+} from "../../../utils/common";
+import Select from "../../../components/common/Select";
+import Input from "../../../components/common/Input";
 
 const CareersPageEditor = () => {
   const router = useRouter();
+  const params = useParams();
+  const { slug } = params;
   const { company } = useSelector((state) => state.company);
   const [selectedSection, setSelectedSection] = useState(null);
   const [sections, setSections] = useState([]);
@@ -34,6 +42,37 @@ const CareersPageEditor = () => {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [jobs, setJobs] = useState([]);
+  const [search, setSearch] = useState("");
+  const [filters, setFilters] = useState({
+    department: "",
+    employmentType: "",
+    experienceLevel: "",
+    workPolicy: "",
+  });
+
+  const filteredJobs = jobs.filter((job) => {
+    const matchesSearch =
+      job.title.toLowerCase().includes(search.toLowerCase()) ||
+      job.location.toLowerCase().includes(search.toLowerCase());
+    const matchesDepartment =
+      !filters.department || job.department === filters.department;
+    const matchesEmploymentType =
+      !filters.employmentType || job.employmentType === filters.employmentType;
+    const matchesExperienceLevel =
+      !filters.experienceLevel ||
+      job.experienceLevel === filters.experienceLevel;
+    const matchesWorkPolicy =
+      !filters.workPolicy || job.workPolicy === filters.workPolicy;
+
+    return (
+      matchesSearch &&
+      matchesDepartment &&
+      matchesEmploymentType &&
+      matchesExperienceLevel &&
+      matchesWorkPolicy
+    );
+  });
 
   useEffect(() => {
     if (company?.id) {
@@ -44,41 +83,11 @@ const CareersPageEditor = () => {
   const fetchCareerPageDesign = async () => {
     setLoading(true);
     try {
-      // Fetch theme settings
-      const themeSettings = await getThemeSettingByCompanyIdAPI(company?.id);
-      setTheme({
-        id: themeSettings?.id,
-        primaryColor: themeSettings?.primaryColor || "#5138ee",
-        secondaryColor: themeSettings?.secondaryColor || "#3521B5",
-        textColor: themeSettings?.textColor || "#000000",
-        backgroundColor: themeSettings?.backgroundColor || "#ffffff",
-      });
-
-      // Fetch sections
-      const sectionsData = await getCareerPageSectionByCompanyIdAPI(
-        company?.id
-      );
-
-      if (sectionsData && sectionsData.length > 0) {
-        // Fetch content for each section
-        const sectionsWithContent = await Promise.all(
-          sectionsData.map(async (section) => {
-            const content = await getCareerPageSectionContentBySectionIdAPI(
-              section.id
-            );
-            return {
-              ...section,
-              content: content || {},
-            };
-          })
-        );
-
-        // Sort by order
-        const sortedSections = sectionsWithContent.sort(
-          (a, b) => a.order - b.order
-        );
-        setSections(sortedSections);
-      }
+      const response = await getCareerPageBySlugAPI(slug);
+      setTheme(response.theme);
+      setSections(response.sections || []);
+      setJobs(response.jobs || []);
+      console.log("Career page response:", response);
     } catch (error) {
       console.error("Error fetching career page design:", error);
     } finally {
@@ -380,25 +389,100 @@ const CareersPageEditor = () => {
         onClick={() => setSelectedSection(section)}
       >
         <h2
-          className="text-3xl font-bold mb-8"
+          className="text-3xl text-center font-bold mb-8"
           style={{ color: theme.primaryColor }}
         >
           {content.title || "Open Positions"}
         </h2>
-        <div className="space-y-4">
-          {[
-            "Senior Software Engineer",
-            "Product Designer",
-            "Marketing Manager",
-          ].map((job, idx) => (
-            <div
-              key={idx}
-              className="border rounded-lg p-6 hover:shadow-lg transition-shadow"
-            >
-              <h3 className="text-xl font-semibold mb-2">{job}</h3>
-              <p className="text-gray-600">San Francisco, CA • Full-time</p>
-            </div>
-          ))}
+        <div className="mb-4">
+          <Input
+            placeholder="Search jobs..."
+            className="w-full"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+        <div className="flex flex-row gap-4">
+          <Select
+            options={workPolicyOptions}
+            placeholder="Filter by work policy"
+            className="w-full"
+            value={filters.workPolicy}
+            onChange={(value) => setFilters({ ...filters, workPolicy: value })}
+          />
+          <Select
+            options={departmentOptions}
+            placeholder="Filter by department"
+            className="w-full"
+            value={filters.department}
+            onChange={(value) => setFilters({ ...filters, department: value })}
+          />
+          <Select
+            options={employmentTypeOptions}
+            placeholder="Filter by employment type"
+            className="w-full"
+            value={filters.employmentType}
+            onChange={(value) =>
+              setFilters({ ...filters, employmentType: value })
+            }
+          />
+          <Select
+            options={experienceLevelOptions}
+            placeholder="Filter by experience level"
+            className="w-full"
+            value={filters.experienceLevel}
+            onChange={(value) =>
+              setFilters({ ...filters, experienceLevel: value })
+            }
+          />
+        </div>
+        <div className="overflow-x-auto">
+          <table className="min-w-full border-collapse">
+            <tbody>
+              {filteredJobs?.map((job) => (
+                <tr
+                  key={job.id}
+                  className="border-b hover:bg-gray-50 transition-colors"
+                >
+                  <td className="p-4 flex flex-col">
+                    <span className="font-medium">{job.title}</span>
+                    <span className="text-gray-500 text-sm">
+                      {new Date(job.createdAt).toLocaleDateString()}{" "}
+                    </span>
+                  </td>
+
+                  <td className="p-4">
+                    {workPolicyOptions.find(
+                      (option) => option.value === job.workPolicy
+                    )?.label || job.workPolicy}
+                  </td>
+                  <td className="p-4">{job.location}</td>
+                  <td className="p-4">
+                    {departmentOptions.find(
+                      (option) => option.value === job.department
+                    )?.label || job.department}
+                  </td>
+                  <td className="p-4">
+                    {employmentTypeOptions.find(
+                      (option) => option.value === job.employmentType
+                    )?.label || job.employmentType}
+                  </td>
+                  <td className="p-4">
+                    {experienceLevelOptions.find(
+                      (option) => option.value === job.experienceLevel
+                    )?.label || job.experienceLevel}
+                  </td>
+                </tr>
+              ))}
+              {filteredJobs.length === 0 && (
+                <tr>
+                  <td colSpan="6" className="p-8 text-center text-gray-500">
+                    No jobs match your current filters.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
     );

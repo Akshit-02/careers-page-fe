@@ -16,7 +16,7 @@ const TopNav = () => {
   };
 
   return (
-    <header className="fixed top-0 right-0 left-64 bg-white border-b border-gray-200 h-16 flex items-center justify-end px-6 z-10">
+    <header className="fixed top-0 right-0 left-64 bg-white border-b border-gray-200 h-16 flex items-center justify-end px-6">
       <button
         onClick={handleLogout}
         className="p-2 text-gray-500 hover:text-gray-700 focus:outline-none"
