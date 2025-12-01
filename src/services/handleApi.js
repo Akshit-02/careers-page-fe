@@ -3,6 +3,7 @@ import {
   createCareerPageSection,
   createCareerPageSectionContent,
   createJob,
+  getCareerPageBySlug,
   getCareerPageSectionByCompanyId,
   getCareerPageSectionContentBySectionId,
   getCompanyById,
@@ -184,4 +185,16 @@ export const updateCareerPageSectionContentAPI = async (input) => {
   });
 
   return response.data.updateCareerPageSectionContent;
+};
+
+export const getCareerPageBySlugAPI = async (slug) => {
+  const response = await client.graphql({
+    query: getCareerPageBySlug,
+    variables: {
+      slug,
+    },
+    authMode: "apiKey",
+  });
+
+  return response.data.getCareerPageBySlug;
 };

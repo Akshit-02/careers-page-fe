@@ -61,7 +61,6 @@ export const getJobsByCompanyId = /* GraphQL */ `
         isActive
         createdAt
         updatedAt
-        updatedAt
       }
     }
   }
@@ -235,6 +234,63 @@ export const updateCareerPageSectionContent = /* GraphQL */ `
         title
         description
         imageUrl
+      }
+    }
+  }
+`;
+
+export const getCareerPageBySlug = /* GraphQL */ `
+  query GetCareerPageBySlug($slug: String!) {
+    getCareerPageBySlug(slug: $slug) {
+      company {
+        id
+        logoUrl
+        name
+      }
+      theme {
+        id
+        companyId
+        primaryColor
+        secondaryColor
+        textColor
+        backgroundColor
+      }
+      jobs {
+        id
+        companyId
+        title
+        workPolicy
+        location
+        department
+        employmentType
+        experienceLevel
+        minSalary
+        maxSalary
+        currency
+        isActive
+        createdAt
+      }
+      sections {
+        id
+        companyId
+        type
+        order
+        isArchived
+        content {
+          id
+          sectionId
+          title
+          description
+          text
+          buttonText
+          buttonLink
+          imageUrl
+          cards {
+            title
+            description
+            imageUrl
+          }
+        }
       }
     }
   }

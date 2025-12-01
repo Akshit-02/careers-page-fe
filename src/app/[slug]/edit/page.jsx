@@ -329,7 +329,7 @@ const CareersPageEditor = () => {
               <img
                 src={getMediaUrl(content.imageUrl)}
                 alt={content.title}
-                className="w-full h-64 object-cover"
+                className="w-full h-64 object-contain"
               />
             </div>
           )}

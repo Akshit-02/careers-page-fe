@@ -1,14 +1,9 @@
 "use client";
 
-import { getMediaUrl } from "../../../utils/helper";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
-import {
-  getCareerPageSectionByCompanyIdAPI,
-  getCareerPageSectionContentBySectionIdAPI,
-  getCompanyBySlugAPI,
-  getThemeSettingByCompanyIdAPI,
-} from "../../../services/handleApi";
+import { getCareerPageBySlugAPI } from "../../../services/handleApi";
+import { getMediaUrl } from "../../../utils/helper";
 
 const CareersPage = () => {
   const params = useParams();
@@ -16,6 +11,8 @@ const CareersPage = () => {
   const [company, setCompany] = useState(null);
   const [theme, setTheme] = useState(null);
   const [sections, setSections] = useState([]);
+  const [jobs, setJobs] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetchCompany();
@@ -23,37 +20,12 @@ const CareersPage = () => {
 
   const fetchCompany = async () => {
     try {
-      const companyRes = await getCompanyBySlugAPI(slug);
-      setCompany(companyRes);
-      if (companyRes?.id) {
-        const themeRes = await getThemeSettingByCompanyIdAPI(companyRes.id);
-        setTheme(themeRes);
+      const result = await getCareerPageBySlugAPI(slug);
 
-        const sectionsData = await getCareerPageSectionByCompanyIdAPI(
-          companyRes.id
-        );
-
-        if (sectionsData && sectionsData.length > 0) {
-          // Fetch content for each section
-          const sectionsWithContent = await Promise.all(
-            sectionsData.map(async (section) => {
-              const content = await getCareerPageSectionContentBySectionIdAPI(
-                section.id
-              );
-              return {
-                ...section,
-                content: content || {},
-              };
-            })
-          );
-
-          // Sort by order
-          const sortedSections = sectionsWithContent.sort(
-            (a, b) => a.order - b.order
-          );
-          setSections(sortedSections);
-        }
-      }
+      setCompany(result?.company);
+      setJobs(result?.jobs);
+      setTheme(result?.theme);
+      setSections(result?.sections);
     } catch (error) {
       console.error("Error fetching company data:", error);
     }
@@ -117,7 +89,7 @@ const CareersPage = () => {
               <img
                 src={getMediaUrl(content.imageUrl)}
                 alt={content.title}
-                className="w-full h-64 object-cover"
+                className="w-full h-64 object-contain"
               />
             </div>
           )}
