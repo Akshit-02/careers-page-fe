@@ -185,11 +185,6 @@ export const getCareerPageSectionContentBySectionId = /* GraphQL */ `
         buttonText
         buttonLink
         imageUrl
-        cards {
-          title
-          description
-          imageUrl
-        }
       }
     }
   }
@@ -208,11 +203,6 @@ export const createCareerPageSectionContent = /* GraphQL */ `
       buttonText
       buttonLink
       imageUrl
-      cards {
-        title
-        description
-        imageUrl
-      }
     }
   }
 `;
@@ -230,11 +220,6 @@ export const updateCareerPageSectionContent = /* GraphQL */ `
       buttonText
       buttonLink
       imageUrl
-      cards {
-        title
-        description
-        imageUrl
-      }
     }
   }
 `;
@@ -285,11 +270,6 @@ export const getCareerPageBySlug = /* GraphQL */ `
           buttonText
           buttonLink
           imageUrl
-          cards {
-            title
-            description
-            imageUrl
-          }
         }
       }
     }

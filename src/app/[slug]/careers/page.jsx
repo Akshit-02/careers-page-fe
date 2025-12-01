@@ -98,37 +98,6 @@ const CareersPage = () => {
     );
   };
 
-  const renderCardGridPreview = (section) => {
-    const { content } = section;
-    let cards = [];
-
-    try {
-      cards = content.cards ? JSON.parse(content.cards) : [];
-    } catch (e) {
-      console.error("Error parsing cards:", e);
-    }
-
-    return (
-      <div className="p-12 bg-gray-50 cursor-pointer transition-all">
-        <h2
-          className="text-3xl font-bold mb-8 text-center"
-          style={{ color: theme.primaryColor }}
-        >
-          {content.title || "Benefits"}
-        </h2>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-          {cards.map((card, idx) => (
-            <div key={idx} className="text-center p-4 bg-white rounded-lg">
-              <div className="text-4xl mb-3">{card.icon}</div>
-              <h3 className="font-semibold mb-2">{card.title}</h3>
-              <p className="text-sm text-gray-600">{card.description}</p>
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  };
-
   const renderJobListPreview = (section) => {
     const { content } = section;
     return (
@@ -166,8 +135,6 @@ const CareersPage = () => {
         return renderImageBannerPreview(section);
       case "IMAGE_TEXT":
         return renderImageTextPreview(section);
-      case "CARD_GRID":
-        return renderCardGridPreview(section);
       case "JOB_LIST":
         return renderJobListPreview(section);
       default:

@@ -3,9 +3,9 @@
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useSelector } from "react-redux";
+import { uploadData } from "aws-amplify/storage";
 import Button from "../../../components/common/Button";
 import {
-  // deleteCareerPageSectionAPI,
   createCareerPageSectionAPI,
   createCareerPageSectionContentAPI,
   getCareerPageBySlugAPI,
@@ -41,6 +41,7 @@ const CareersPageEditor = () => {
   const [theme, setTheme] = useState({});
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [jobs, setJobs] = useState([]);
   const [search, setSearch] = useState("");
@@ -92,6 +93,53 @@ const CareersPageEditor = () => {
       console.error("Error fetching career page design:", error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleImageUpload = async (file) => {
+    if (!file) return null;
+
+    setUploading(true);
+    try {
+      const result = await uploadData({
+        path: `public/company/${file.name}`,
+        data: file,
+        options: {
+          contentType: file.type,
+        },
+      }).result;
+
+      return result.path;
+    } catch (error) {
+      console.error("Error uploading image:", error);
+      alert("Failed to upload image. Please try again.");
+      return null;
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleFileSelect = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith("image/")) {
+      alert("Please select an image file");
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      alert("Image size should be less than 5MB");
+      return;
+    }
+
+    const uploadedPath = await handleImageUpload(file);
+    if (uploadedPath && selectedSection) {
+      updateSectionContent(selectedSection.id, {
+        imageUrl: uploadedPath,
+      });
     }
   };
 
@@ -177,14 +225,6 @@ const CareersPageEditor = () => {
 
   const deleteSection = async (id) => {
     if (!confirm("Are you sure you want to delete this section?")) return;
-
-    // try {
-    //   await deleteCareerPageSectionAPI(id);
-    //   setSections(sections.filter((s) => s.id !== id));
-    //   if (selectedSection?.id === id) setSelectedSection(null);
-    // } catch (error) {
-    //   console.error("Error deleting section:", error);
-    // }
   };
 
   const addSection = async (type) => {
@@ -223,7 +263,6 @@ const CareersPageEditor = () => {
       buttonText: null,
       buttonLink: null,
       imageUrl: null,
-      cards: null,
     };
 
     switch (type) {
@@ -242,23 +281,6 @@ const CareersPageEditor = () => {
           description: "Add a brief description",
           text: "Add your detailed content here",
           imageUrl: "public/common/default-image.jpg",
-        };
-      case "CARD_GRID":
-        return {
-          ...baseContent,
-          title: "Benefits & Perks",
-          cards: JSON.stringify([
-            {
-              icon: "🏥",
-              title: "Health Insurance",
-              description: "Comprehensive coverage",
-            },
-            {
-              icon: "🏖️",
-              title: "Unlimited PTO",
-              description: "Take time when needed",
-            },
-          ]),
         };
       case "JOB_LIST":
         return {
@@ -347,40 +369,6 @@ const CareersPageEditor = () => {
     );
   };
 
-  const renderCardGridPreview = (section) => {
-    const { content } = section;
-    let cards = [];
-
-    try {
-      cards = content.cards ? JSON.parse(content.cards) : [];
-    } catch (e) {
-      console.error("Error parsing cards:", e);
-    }
-
-    return (
-      <div
-        className="p-12 bg-gray-50 cursor-pointer hover:ring-4 hover:ring-[#5138ee] transition-all"
-        onClick={() => setSelectedSection(section)}
-      >
-        <h2
-          className="text-3xl font-bold mb-8 text-center"
-          style={{ color: theme.primaryColor }}
-        >
-          {content.title || "Benefits"}
-        </h2>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-          {cards.map((card, idx) => (
-            <div key={idx} className="text-center p-4 bg-white rounded-lg">
-              <div className="text-4xl mb-3">{card.icon}</div>
-              <h3 className="font-semibold mb-2">{card.title}</h3>
-              <p className="text-sm text-gray-600">{card.description}</p>
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  };
-
   const renderJobListPreview = (section) => {
     const { content } = section;
     return (
@@ -408,22 +396,26 @@ const CareersPageEditor = () => {
             placeholder="Filter by work policy"
             className="w-full"
             value={filters.workPolicy}
-            onChange={(value) => setFilters({ ...filters, workPolicy: value })}
+            onChange={(e) =>
+              setFilters({ ...filters, workPolicy: e.target.value })
+            }
           />
           <Select
             options={departmentOptions}
             placeholder="Filter by department"
             className="w-full"
             value={filters.department}
-            onChange={(value) => setFilters({ ...filters, department: value })}
+            onChange={(e) =>
+              setFilters({ ...filters, department: e.target.value })
+            }
           />
           <Select
             options={employmentTypeOptions}
             placeholder="Filter by employment type"
             className="w-full"
             value={filters.employmentType}
-            onChange={(value) =>
-              setFilters({ ...filters, employmentType: value })
+            onChange={(e) =>
+              setFilters({ ...filters, employmentType: e.target.value })
             }
           />
           <Select
@@ -431,8 +423,8 @@ const CareersPageEditor = () => {
             placeholder="Filter by experience level"
             className="w-full"
             value={filters.experienceLevel}
-            onChange={(value) =>
-              setFilters({ ...filters, experienceLevel: value })
+            onChange={(e) =>
+              setFilters({ ...filters, experienceLevel: e.target.value })
             }
           />
         </div>
@@ -496,8 +488,6 @@ const CareersPageEditor = () => {
         return renderImageBannerPreview(section);
       case "IMAGE_TEXT":
         return renderImageTextPreview(section);
-      case "CARD_GRID":
-        return renderCardGridPreview(section);
       case "JOB_LIST":
         return renderJobListPreview(section);
       default:
@@ -565,19 +555,52 @@ const CareersPageEditor = () => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-2">
-                Image URL
-              </label>
-              <input
-                type="text"
-                value={content.imageUrl || ""}
-                onChange={(e) =>
-                  updateSectionContent(selectedSection.id, {
-                    imageUrl: e.target.value,
-                  })
-                }
-                className="w-full border rounded-lg px-3 py-2"
-              />
+              <label className="block text-sm font-medium mb-2">Image</label>
+              <div className="space-y-3">
+                {content.imageUrl && (
+                  <div className="relative w-full h-32 border rounded-lg overflow-hidden bg-gray-50">
+                    <img
+                      src={getMediaUrl(content.imageUrl)}
+                      alt="Preview"
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                )}
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleFileSelect}
+                  className="hidden"
+                  id="image-upload"
+                  disabled={uploading}
+                />
+                <label
+                  htmlFor="image-upload"
+                  className={`flex items-center justify-center gap-2 w-full border-2 border-dashed rounded-lg px-4 py-3 cursor-pointer transition-colors ${
+                    uploading
+                      ? "bg-gray-100 cursor-not-allowed"
+                      : "hover:bg-gray-50 hover:border-[#5138ee]"
+                  }`}
+                >
+                  {uploading ? (
+                    <>
+                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-[#5138ee]"></div>
+                      <span className="text-sm text-gray-600">
+                        Uploading...
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="text-sm text-gray-600">
+                        {content.imageUrl ? "Change Image" : "Upload Image"}
+                      </span>
+                    </>
+                  )}
+                </label>
+                <p className="text-xs text-gray-500">
+                  Supported formats: JPG, PNG, GIF (max 5MB)
+                </p>
+              </div>
             </div>
           </>
         )}
@@ -632,28 +655,6 @@ const CareersPageEditor = () => {
               />
             </div>
           </>
-        )}
-
-        {type === "CARD_GRID" && (
-          <div>
-            <label className="block text-sm font-medium mb-2">
-              Cards (JSON)
-            </label>
-            <textarea
-              value={content.cards || ""}
-              onChange={(e) =>
-                updateSectionContent(selectedSection.id, {
-                  cards: e.target.value,
-                })
-              }
-              rows={10}
-              className="w-full border rounded-lg px-3 py-2 font-mono text-sm"
-              placeholder='[{"icon": "🏥", "title": "Benefit", "description": "Details"}]'
-            />
-            <p className="text-xs text-gray-500 mt-1">
-              Format: Array of objects with icon, title, and description
-            </p>
-          </div>
         )}
       </div>
     );
@@ -779,18 +780,12 @@ const CareersPageEditor = () => {
                 <button className="p-1 hover:bg-gray-100 rounded">
                   <PlusIcon className="w-5 h-5" />
                 </button>
-                <div className="absolute right-0 mt-1 w-56 bg-white border rounded-lg shadow-lg hidden group-hover:block z-10">
+                <div className="absolute right-0 w-56 bg-white border rounded-lg shadow-lg hidden group-hover:block z-10">
                   <button
                     onClick={() => addSection("IMAGE_TEXT")}
                     className="w-full text-left px-4 py-2 hover:bg-gray-50 text-sm"
                   >
                     Image + Text Section
-                  </button>
-                  <button
-                    onClick={() => addSection("MULTI_COLUMN")}
-                    className="w-full text-left px-4 py-2 hover:bg-gray-50 text-sm"
-                  >
-                    Cards Grid
                   </button>
                   <button
                     onClick={() => addSection("IMAGE_BANNER")}
