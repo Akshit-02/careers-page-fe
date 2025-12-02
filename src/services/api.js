@@ -150,7 +150,7 @@ export const getCareerPageSectionByCompanyId = /* GraphQL */ `
 `;
 
 export const createCareerPageSection = /* GraphQL */ `
-  mutation CreateCareerPageSection($input: CreateCareerPageSectionInput!) {
+  mutation CreateCareerPageSection($input: CareerPageSectionInput!) {
     createCareerPageSection(input: $input) {
       id
       companyId
@@ -162,7 +162,7 @@ export const createCareerPageSection = /* GraphQL */ `
 `;
 
 export const updateCareerPageSection = /* GraphQL */ `
-  mutation UpdateCareerPageSection($input: UpdateCareerPageSectionInput!) {
+  mutation UpdateCareerPageSection($input: CareerPageSectionInput!) {
     updateCareerPageSection(input: $input) {
       id
       companyId
@@ -192,7 +192,7 @@ export const getCareerPageSectionContentBySectionId = /* GraphQL */ `
 
 export const createCareerPageSectionContent = /* GraphQL */ `
   mutation CreateCareerPageSectionContent(
-    $input: CreateCareerPageSectionContentInput!
+    $input: CareerPageSectionContentInput!
   ) {
     createCareerPageSectionContent(input: $input) {
       id
@@ -209,7 +209,7 @@ export const createCareerPageSectionContent = /* GraphQL */ `
 
 export const updateCareerPageSectionContent = /* GraphQL */ `
   mutation UpdateCareerPageSectionContent(
-    $input: UpdateCareerPageSectionContentInput!
+    $input: CareerPageSectionContentInput!
   ) {
     updateCareerPageSectionContent(input: $input) {
       id

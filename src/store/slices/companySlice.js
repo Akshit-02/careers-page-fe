@@ -11,7 +11,6 @@ export const fetchCompany = createAsyncThunk(
   "company/fetchCompany",
   async (id) => {
     try {
-      console.log("id", id);
       const response = await getCompanyByIdAPI(id);
       return response;
     } catch (error) {

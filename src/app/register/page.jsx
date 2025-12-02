@@ -23,14 +23,12 @@ const RegisterPage = () => {
         username: email.toLowerCase(),
         password: password,
       });
-      console.log("user", user);
 
       if (user.isSignUpComplete) {
         const signInUser = await signIn({
           username: email.toLowerCase(),
           password: password,
         });
-        console.log("signInUser", signInUser);
 
         dispatch(fetchCompany(user.userId));
         router.push("/onboarding");
