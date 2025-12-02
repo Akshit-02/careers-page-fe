@@ -178,44 +178,46 @@ const JobsPage = () => {
   return (
     <DashboardLayout>
       <div className="p-4">
-        <div className="flex justify-between items-center mb-6">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Job Listings</h1>
-            <p className="mt-1 text-sm text-gray-600">
-              Manage your company's job postings and applications
-            </p>
+        <div className="bg-white rounded-xl shadow-lg p-4 border border-gray-200 overflow-hidden">
+          <div className="flex justify-between items-center mb-6">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">Job Listings</h1>
+              <p className="mt-1 text-sm text-gray-600">
+                Manage your company's job postings and applications
+              </p>
+            </div>
+            <Button
+              onClick={() => {
+                setSelectedJob(null);
+                setShowJobForm(true);
+              }}
+            >
+              Create Job
+            </Button>
           </div>
-          <Button
-            onClick={() => {
-              setSelectedJob(null);
-              setShowJobForm(true);
-            }}
-          >
-            Create Job
-          </Button>
-        </div>
 
-        <div className="bg-white rounded-lg shadow overflow-hidden">
-          <Table
-            columns={columns}
-            data={jobs}
-            loading={loading}
-            emptyMessage="No jobs available"
-            className="divide-y divide-gray-200"
-          />
-        </div>
+          <div className="bg-white rounded-lg shadow overflow-hidden">
+            <Table
+              columns={columns}
+              data={jobs}
+              loading={loading}
+              emptyMessage="No jobs available"
+              className="divide-y divide-gray-200"
+            />
+          </div>
 
-        {showJobForm && (
-          <JobModal
-            isOpen={showJobForm}
-            onClose={() => {
-              setShowJobForm(false);
-              setSelectedJob(null);
-            }}
-            job={selectedJob}
-            onSave={selectedJob ? handleUpdateJob : handleCreateJob}
-          />
-        )}
+          {showJobForm && (
+            <JobModal
+              isOpen={showJobForm}
+              onClose={() => {
+                setShowJobForm(false);
+                setSelectedJob(null);
+              }}
+              job={selectedJob}
+              onSave={selectedJob ? handleUpdateJob : handleCreateJob}
+            />
+          )}
+        </div>
       </div>
     </DashboardLayout>
   );
