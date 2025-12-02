@@ -4,6 +4,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useSelector } from "react-redux";
 import { uploadData } from "aws-amplify/storage";
+import { v4 as uuidv4 } from "uuid";
 import Button from "../../../components/common/Button";
 import {
   createCareerPageSectionAPI,
@@ -21,6 +22,7 @@ import {
   PlusIcon,
   SettingsIcon,
   Trash2Icon,
+  // UploadIcon,
 } from "../../../utils/icons";
 import {
   departmentOptions,
@@ -51,6 +53,10 @@ const CareersPageEditor = () => {
     experienceLevel: "",
     workPolicy: "",
   });
+  const [newSections, setNewSections] = useState([]); // Track newly created sections
+  const [modifiedSections, setModifiedSections] = useState(new Set()); // Track modified section IDs
+  const [deletedSections, setDeletedSections] = useState([]); // Track deleted section IDs
+  const [draggedSection, setDraggedSection] = useState(null); // Track section being dragged
 
   const filteredJobs = jobs.filter((job) => {
     const matchesSearch =
@@ -154,26 +160,65 @@ const CareersPageEditor = () => {
         backgroundColor: theme.backgroundColor,
       });
 
-      // Update sections order and visibility
+      // Handle deleted sections - mark as archived
       await Promise.all(
-        sections.map((section, index) =>
-          updateCareerPageSectionAPI(section.id, {
-            order: index,
-            isArchived: !section.isVisible,
+        deletedSections.map((sectionId) =>
+          updateCareerPageSectionAPI(sectionId, {
+            isArchived: true,
           })
         )
       );
 
-      // Update section content
-      await Promise.all(
-        sections.map((section) =>
-          updateCareerPageSectionContentAPI(section.content.id, section.content)
-        )
+      // Create new sections
+      for (const section of newSections) {
+        const createdSection = await createCareerPageSectionAPI({
+          id: section.id,
+          companyId: company.id,
+          type: section.type,
+          order: section.order,
+          isArchived: false,
+        });
+
+        // Create content for the new section
+        await createCareerPageSectionContentAPI({
+          ...section.content,
+          sectionId: createdSection.id,
+        });
+      }
+
+      // Update modified sections
+      const sectionsToUpdate = sections.filter(
+        (s) =>
+          modifiedSections.has(s.id) &&
+          !newSections.find((ns) => ns.id === s.id)
       );
 
+      await Promise.all([
+        // Update section order and visibility
+        ...sections
+          .filter((s) => !deletedSections.includes(s.id))
+          .map((section, index) =>
+            updateCareerPageSectionAPI(section.id, {
+              order: index,
+              isArchived: !section.isVisible,
+            })
+          ),
+        // Update section content for modified sections
+        ...sectionsToUpdate.map((section) =>
+          updateCareerPageSectionContentAPI(section.content.id, section.content)
+        ),
+      ]);
+
+      // Clear tracking states
+      setNewSections([]);
+      setModifiedSections(new Set());
+      setDeletedSections([]);
       setHasUnsavedChanges(false);
+
+      alert("Changes saved successfully!");
     } catch (error) {
       console.error("Error saving changes:", error);
+      alert("Failed to save changes. Please try again.");
     } finally {
       setSaving(false);
     }
@@ -193,10 +238,47 @@ const CareersPageEditor = () => {
     // Update order
     newSections.forEach((section, idx) => {
       section.order = idx;
+      // Track as modified
+      setModifiedSections((prev) => new Set(prev).add(section.id));
     });
 
     setSections(newSections);
     setHasUnsavedChanges(true);
+  };
+
+  const handleDragStart = (e, index) => {
+    setDraggedSection(index);
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/html", e.target);
+  };
+
+  const handleDragOver = (e, index) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+
+    if (draggedSection === null || draggedSection === index) return;
+
+    const newSections = [...sections];
+    const draggedItem = newSections[draggedSection];
+
+    // Remove dragged item
+    newSections.splice(draggedSection, 1);
+    // Insert at new position
+    newSections.splice(index, 0, draggedItem);
+
+    // Update order
+    newSections.forEach((section, idx) => {
+      section.order = idx;
+      setModifiedSections((prev) => new Set(prev).add(section.id));
+    });
+
+    setSections(newSections);
+    setDraggedSection(index);
+    setHasUnsavedChanges(true);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedSection(null);
   };
 
   const updateSectionContent = (id, newData) => {
@@ -209,6 +291,9 @@ const CareersPageEditor = () => {
       ...selectedSection,
       content: { ...selectedSection.content, ...newData },
     });
+
+    // Track modified section
+    setModifiedSections((prev) => new Set(prev).add(id));
     setHasUnsavedChanges(true);
   };
 
@@ -225,6 +310,22 @@ const CareersPageEditor = () => {
 
   const deleteSection = async (id) => {
     if (!confirm("Are you sure you want to delete this section?")) return;
+
+    // Add to deleted sections list
+    setDeletedSections((prev) => [...prev, id]);
+
+    // Remove from sections display
+    setSections((prev) => prev.filter((s) => s.id !== id));
+
+    // Remove from new sections if it was newly created
+    setNewSections((prev) => prev.filter((s) => s.id !== id));
+
+    // Clear selection if deleted section was selected
+    if (selectedSection?.id === id) {
+      setSelectedSection(null);
+    }
+
+    setHasUnsavedChanges(true);
   };
 
   const addSection = async (type) => {
@@ -280,7 +381,7 @@ const CareersPageEditor = () => {
           title: "New Content Section",
           description: "Add a brief description",
           text: "Add your detailed content here",
-          imageUrl: "public/common/default-image.jpg",
+          imageUrl: "public/common/1732618899716-dcc5ec5.png",
         };
       case "JOB_LIST":
         return {
@@ -302,15 +403,21 @@ const CareersPageEditor = () => {
     const { content } = section;
     return (
       <div
-        className="relative h-96 bg-cover bg-center cursor-pointer hover:ring-4 hover:ring-[#5138ee] transition-all"
+        className="relative h-96 bg-cover bg-center cursor-pointer hover:ring-4 transition-all"
         style={{
           backgroundImage: content.imageUrl
             ? `url(${getMediaUrl(content.imageUrl)})`
-            : "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+            : `linear-gradient(135deg, ${theme.primaryColor || "#667eea"} 0%, ${
+                theme.secondaryColor || "#764ba2"
+              } 100%)`,
+          borderColor: theme.primaryColor || "#5138ee",
         }}
         onClick={() => setSelectedSection(section)}
       >
-        <div className="absolute inset-0 bg-black bg-opacity-40 flex flex-col items-center justify-center text-white p-8">
+        <div
+          className="absolute inset-0 bg-black bg-opacity-40 flex flex-col items-center justify-center p-8"
+          style={{ color: theme.textColor || "#ffffff" }}
+        >
           {content.title && (
             <h1 className="text-5xl font-bold mb-4">{content.title}</h1>
           )}
@@ -320,7 +427,10 @@ const CareersPageEditor = () => {
           {content.buttonText && (
             <button
               className="px-6 py-3 rounded-lg font-semibold"
-              style={{ backgroundColor: theme.primaryColor }}
+              style={{
+                backgroundColor: theme.primaryColor || "#5138ee",
+                color: theme.backgroundColor || "#ffffff",
+              }}
             >
               {content.buttonText}
             </button>
@@ -334,25 +444,37 @@ const CareersPageEditor = () => {
     const { content } = section;
     return (
       <div
-        className="p-12 cursor-pointer hover:ring-4 hover:ring-[#5138ee] transition-all bg-white"
+        className="p-12 cursor-pointer hover:ring-4 transition-all"
+        style={{
+          backgroundColor: theme.backgroundColor || "#ffffff",
+          borderColor: theme.primaryColor || "#5138ee",
+        }}
         onClick={() => setSelectedSection(section)}
       >
         {content.title && (
           <h2
             className="text-3xl font-bold mb-4 text-center"
-            style={{ color: theme.primaryColor }}
+            style={{ color: theme.primaryColor || "#5138ee" }}
           >
             {content.title}
           </h2>
         )}
         {content.description && (
-          <p className="text-gray-700 text-center text-lg mb-4">
+          <p
+            className="text-center text-lg mb-4"
+            style={{ color: theme.secondaryColor || "#666" }}
+          >
             {content.description}
           </p>
         )}
         <div className="grid md:grid-cols-2 gap-8 items-center">
           {content.text && (
-            <p className="text-gray-600 leading-relaxed">{content.text}</p>
+            <p
+              className="leading-relaxed"
+              style={{ color: theme.textColor || "#4b5563" }}
+            >
+              {content.text}
+            </p>
           )}
 
           {content.imageUrl && (
@@ -373,12 +495,16 @@ const CareersPageEditor = () => {
     const { content } = section;
     return (
       <div
-        className="p-12 cursor-pointer hover:ring-4 hover:ring-[#5138ee] transition-all bg-white"
+        className="p-12 cursor-pointer hover:ring-4 transition-all"
+        style={{
+          backgroundColor: theme.backgroundColor || "#ffffff",
+          borderColor: theme.primaryColor || "#5138ee",
+        }}
         onClick={() => setSelectedSection(section)}
       >
         <h2
           className="text-3xl text-center font-bold mb-8"
-          style={{ color: theme.primaryColor }}
+          style={{ color: theme.primaryColor || "#5138ee" }}
         >
           {content.title || "Open Positions"}
         </h2>
@@ -388,6 +514,10 @@ const CareersPageEditor = () => {
             className="w-full"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
+            style={{
+              borderColor: theme.secondaryColor,
+              color: theme.textColor,
+            }}
           />
         </div>
         <div className="flex flex-row gap-4">
@@ -399,6 +529,10 @@ const CareersPageEditor = () => {
             onChange={(e) =>
               setFilters({ ...filters, workPolicy: e.target.value })
             }
+            style={{
+              borderColor: theme.secondaryColor,
+              color: theme.textColor,
+            }}
           />
           <Select
             options={departmentOptions}
@@ -408,6 +542,10 @@ const CareersPageEditor = () => {
             onChange={(e) =>
               setFilters({ ...filters, department: e.target.value })
             }
+            style={{
+              borderColor: theme.secondaryColor,
+              color: theme.textColor,
+            }}
           />
           <Select
             options={employmentTypeOptions}
@@ -417,6 +555,10 @@ const CareersPageEditor = () => {
             onChange={(e) =>
               setFilters({ ...filters, employmentType: e.target.value })
             }
+            style={{
+              borderColor: theme.secondaryColor,
+              color: theme.textColor,
+            }}
           />
           <Select
             options={experienceLevelOptions}
@@ -426,6 +568,10 @@ const CareersPageEditor = () => {
             onChange={(e) =>
               setFilters({ ...filters, experienceLevel: e.target.value })
             }
+            style={{
+              borderColor: theme.secondaryColor,
+              color: theme.textColor,
+            }}
           />
         </div>
         <div className="overflow-x-auto">
@@ -434,32 +580,67 @@ const CareersPageEditor = () => {
               {filteredJobs?.map((job) => (
                 <tr
                   key={job.id}
-                  className="border-b hover:bg-gray-50 transition-colors"
+                  className="border-b transition-colors"
+                  style={{
+                    borderColor: theme.secondaryColor + "40",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor =
+                      theme.primaryColor + "10";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = "transparent";
+                  }}
                 >
                   <td className="p-4 flex flex-col">
-                    <span className="font-medium">{job.title}</span>
-                    <span className="text-gray-500 text-sm">
+                    <span
+                      className="font-medium"
+                      style={{ color: theme.textColor || "#1f2937" }}
+                    >
+                      {job.title}
+                    </span>
+                    <span
+                      className="text-sm"
+                      style={{ color: theme.secondaryColor || "#6b7280" }}
+                    >
                       {new Date(job.createdAt).toLocaleDateString()}{" "}
                     </span>
                   </td>
 
-                  <td className="p-4">
+                  <td
+                    className="p-4"
+                    style={{ color: theme.textColor || "#1f2937" }}
+                  >
                     {workPolicyOptions.find(
                       (option) => option.value === job.workPolicy
                     )?.label || job.workPolicy}
                   </td>
-                  <td className="p-4">{job.location}</td>
-                  <td className="p-4">
+                  <td
+                    className="p-4"
+                    style={{ color: theme.textColor || "#1f2937" }}
+                  >
+                    {job.location}
+                  </td>
+                  <td
+                    className="p-4"
+                    style={{ color: theme.textColor || "#1f2937" }}
+                  >
                     {departmentOptions.find(
                       (option) => option.value === job.department
                     )?.label || job.department}
                   </td>
-                  <td className="p-4">
+                  <td
+                    className="p-4"
+                    style={{ color: theme.textColor || "#1f2937" }}
+                  >
                     {employmentTypeOptions.find(
                       (option) => option.value === job.employmentType
                     )?.label || job.employmentType}
                   </td>
-                  <td className="p-4">
+                  <td
+                    className="p-4"
+                    style={{ color: theme.textColor || "#1f2937" }}
+                  >
                     {experienceLevelOptions.find(
                       (option) => option.value === job.experienceLevel
                     )?.label || job.experienceLevel}
@@ -468,7 +649,11 @@ const CareersPageEditor = () => {
               ))}
               {filteredJobs.length === 0 && (
                 <tr>
-                  <td colSpan="6" className="p-8 text-center text-gray-500">
+                  <td
+                    colSpan="6"
+                    className="p-8 text-center"
+                    style={{ color: theme.secondaryColor || "#6b7280" }}
+                  >
                     No jobs match your current filters.
                   </td>
                 </tr>
@@ -591,6 +776,7 @@ const CareersPageEditor = () => {
                     </>
                   ) : (
                     <>
+                      {/* <UploadIcon className="w-5 h-5 text-gray-500" /> */}
                       <span className="text-sm text-gray-600">
                         {content.imageUrl ? "Change Image" : "Upload Image"}
                       </span>
@@ -801,14 +987,22 @@ const CareersPageEditor = () => {
               {sections.map((section, index) => (
                 <div
                   key={section.id}
-                  className={`flex items-center gap-2 p-3 rounded-lg border cursor-pointer ${
+                  draggable
+                  onDragStart={(e) => handleDragStart(e, index)}
+                  onDragOver={(e) => handleDragOver(e, index)}
+                  onDragEnd={handleDragEnd}
+                  className={`flex items-center gap-2 p-3 rounded-lg border cursor-move transition-all ${
                     selectedSection?.id === section.id
                       ? "bg-[#5138ee]/10 border-[#5138ee]"
                       : "bg-gray-50 hover:bg-gray-100"
+                  } ${
+                    draggedSection === index
+                      ? "opacity-50 scale-95"
+                      : "opacity-100 scale-100"
                   }`}
                   onClick={() => setSelectedSection(section)}
                 >
-                  <GripVerticalIcon className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                  <GripVerticalIcon className="w-4 h-4 text-gray-400 flex-shrink-0 cursor-grab active:cursor-grabbing" />
                   <span className="flex-1 text-sm font-medium truncate">
                     {getSectionTitle(section)}
                   </span>
@@ -855,10 +1049,16 @@ const CareersPageEditor = () => {
         </div>
 
         {/* Right Preview Panel */}
-        <div className="flex-1 overflow-y-auto bg-gray-100 p-8">
-          <div className="max-w-5xl mx-auto bg-white shadow-xl">
+        <div className="flex-1 overflow-y-auto p-8">
+          <div
+            className="max-w-5xl mx-auto shadow-xl"
+            style={{ backgroundColor: theme.backgroundColor || "#ffffff" }}
+          >
             {sections.length === 0 ? (
-              <div className="p-12 text-center text-gray-500">
+              <div
+                className="p-12 text-center"
+                style={{ color: theme.secondaryColor || "#6b7280" }}
+              >
                 <p className="text-lg mb-4">No sections yet</p>
                 <p className="text-sm">
                   Click the + button in the sidebar to add your first section
