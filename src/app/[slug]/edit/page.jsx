@@ -72,6 +72,7 @@ const CareersPageEditor = () => {
         deletedSections.map((sectionId) =>
           updateCareerPageSectionAPI({
             id: sectionId,
+            companyId: company.id,
             isArchived: true,
           })
         )
@@ -232,6 +233,11 @@ const CareersPageEditor = () => {
       ...selectedSection,
       content: { ...selectedSection.content, ...newData },
     });
+    setNewSections(
+      newSections.map((s) =>
+        s.id === id ? { ...s, content: { ...s.content, ...newData } } : s
+      )
+    );
 
     setModifiedSections((prev) => new Set(prev).add(id));
     setHasUnsavedChanges(true);
