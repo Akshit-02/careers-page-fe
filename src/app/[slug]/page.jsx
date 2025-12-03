@@ -214,7 +214,7 @@ const CompanyPage = () => {
                     rel="noopener noreferrer"
                     className="text-md text-blue-600 hover:underline"
                   >
-                    {`/${initialCompany?.slug}/careers`}
+                    Click here
                   </a>
                 </div>
               </div>

@@ -201,7 +201,7 @@ const JobsPage = () => {
               columns={columns}
               data={jobs}
               loading={loading}
-              emptyMessage="No jobs available"
+              emptyMessage="jobs available"
               className="divide-y divide-gray-200"
             />
           </div>
