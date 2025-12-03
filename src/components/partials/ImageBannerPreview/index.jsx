@@ -30,7 +30,7 @@ const ImageBannerPreview = ({
           </h1>
         )}
         {content.description && (
-          <p className="text-xl mb-8">{content.description}</p>
+          <p className="text-xl mb-8 text-center">{content.description}</p>
         )}
         {content.buttonText && (
           <button
